@@ -1,9 +1,5 @@
 ### Tasks
 
-#### Incomplete tasks
-
--   [ ] Authentication
+-   [x] Authentication
 -   [ ] Unit tests
 -   [ ] Sqlite database
-
-#### Completed tasks
