@@ -18,7 +18,7 @@ func HandleRequest(ctx context.Context, request events.APIGatewayV2HTTPRequest) 
 	api := RestApi()
 
 	// Register the routes
-	api.Get("/users/1234", ShowUser)
+	api.Get("/users/:userId", ShowUser)
 
 	response := api.HandleRequest(req)
 
