@@ -3,6 +3,7 @@ package main
 import (
 	. "aws_lambda/app"
 	. "aws_lambda/handlers"
+	. "aws_lambda/middleware"
 	"encoding/json"
 	"fmt"
 )
@@ -10,8 +11,12 @@ import (
 func main() {
 	// Sample GET request
 	getRequest := RestApiRequest{
-		Method: "GET",
-		Path:   "/users/1234",
+		Headers: map[string]string{
+			"authorization": "Bearer 987654321",
+		},
+		Cookies: []string{},
+		Method:  "GET",
+		Path:    "/users/1234",
 		Query: map[string]string{
 			"from": "2021-01-01",
 		},
@@ -20,9 +25,11 @@ func main() {
 
 	// Sample PUT request
 	postRequest := RestApiRequest{
-		Method: "PUT",
-		Path:   "/users/1234",
-		Query:  nil,
+		Headers: map[string]string{},
+		Cookies: []string{},
+		Method:  "PUT",
+		Path:    "/users/1234",
+		Query:   nil,
 		Body: map[string]interface{}{
 			"name": "Minny Mouse",
 		},
@@ -32,8 +39,15 @@ func main() {
 	api := RestApi()
 
 	// Register the routes
-	api.Get("/users/:userId", ShowUser)
-	api.Put("/users/:userId", UpdateUser)
+	api.Get("/users/:userId", RouteOptions{
+		Handler: ShowUser,
+		Middleware: []Middleware{
+			Authorize,
+		},
+	})
+	api.Put("/users/:userId", RouteOptions{
+		Handler: UpdateUser,
+	})
 
 	// Handle the requests
 	getResponse := api.HandleRequest(getRequest)

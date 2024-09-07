@@ -7,6 +7,8 @@ import (
 )
 
 type RestApiRequest struct {
+	Headers    map[string]string
+	Cookies    []string
 	Method     string
 	Path       string
 	PathParams map[string]string
@@ -21,7 +23,19 @@ type RestApiResponse struct {
 
 type Handler func(request RestApiRequest) RestApiResponse
 
-type Routes map[string]Handler
+type MiddlewareReason struct {
+	StatusCode int
+	Messsage   string
+}
+
+type Middleware func(request RestApiRequest) (error, *MiddlewareReason)
+
+type RouteOptions struct {
+	Middleware []Middleware
+	Handler    Handler
+}
+
+type Routes map[string]RouteOptions
 
 type Method string
 
@@ -44,31 +58,31 @@ func RestApi() *Api {
 }
 
 // Register a handler for a GET request
-func (api *Api) Get(pathToMatch string, handler Handler) {
-	api.RegisterRoute(GET, pathToMatch, handler)
+func (api *Api) Get(pathToMatch string, routeOptions RouteOptions) {
+	api.RegisterRoute(GET, pathToMatch, routeOptions)
 }
 
 // Register a handler for a POST request
-func (api *Api) Post(pathToMatch string, handler Handler) {
-	api.RegisterRoute(POST, pathToMatch, handler)
+func (api *Api) Post(pathToMatch string, routeOptions RouteOptions) {
+	api.RegisterRoute(POST, pathToMatch, routeOptions)
 }
 
 // Register a handler for a PUT request
-func (api *Api) Put(pathToMatch string, handler Handler) {
-	api.RegisterRoute(PUT, pathToMatch, handler)
+func (api *Api) Put(pathToMatch string, routeOptions RouteOptions) {
+	api.RegisterRoute(PUT, pathToMatch, routeOptions)
 }
 
 // Register a handler for a DELETE request
-func (api *Api) Delete(pathToMatch string, handler Handler) {
-	api.RegisterRoute(DELETE, pathToMatch, handler)
+func (api *Api) Delete(pathToMatch string, routeOptions RouteOptions) {
+	api.RegisterRoute(DELETE, pathToMatch, routeOptions)
 }
 
 // Register a handler for a request
-func (api *Api) RegisterRoute(method Method, pathToMatch string, handler Handler) {
+func (api *Api) RegisterRoute(method Method, pathToMatch string, routeOptions RouteOptions) {
 	if api.methods[method] == nil {
 		api.methods[method] = make(Routes)
 	}
-	api.methods[method][pathToMatch] = handler
+	api.methods[method][pathToMatch] = routeOptions
 }
 
 // Handle a request
@@ -76,18 +90,24 @@ func (api *Api) HandleRequest(request RestApiRequest) RestApiResponse {
 	if api.methods[Method(request.Method)] == nil {
 		return Error(405, "Method not allowed")
 	}
-	var handler Handler
+	var routeOptions RouteOptions
 	for route := range api.methods[Method(request.Method)] {
 		if match(request.Path, route) {
-			handler = api.methods[Method(request.Method)][route]
+			routeOptions = api.methods[Method(request.Method)][route]
 			request.PathParams = extractPathParams(request.Path, route)
 			break
 		}
 	}
-	if handler == nil {
+	if routeOptions.Handler == nil {
 		return Error(404, "Route not found")
 	}
-	return handler(request)
+	for _, middleware := range routeOptions.Middleware {
+		error, reason := middleware(request)
+		if error != nil {
+			return Error(reason.StatusCode, reason.Messsage)
+		}
+	}
+	return routeOptions.Handler(request)
 }
 
 // Extract path parameters from the requested path

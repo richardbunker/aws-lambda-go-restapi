@@ -4,6 +4,7 @@ import (
 	. "aws_lambda/app"
 	. "aws_lambda/handlers"
 	. "aws_lambda/lib"
+	. "aws_lambda/middleware"
 	"context"
 	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
@@ -18,7 +19,12 @@ func HandleRequest(ctx context.Context, request events.APIGatewayV2HTTPRequest) 
 	api := RestApi()
 
 	// Register the routes
-	api.Get("/users/:userId", ShowUser)
+	api.Get("/users/:userId", RouteOptions{
+		Middleware: []Middleware{
+			Authorize,
+		},
+		Handler: ShowUser,
+	})
 
 	response := api.HandleRequest(req)
 
