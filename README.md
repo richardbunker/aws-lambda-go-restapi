@@ -74,12 +74,18 @@ func main() {
 	api := RestApi()
 
 	// Register the routes
-	api.Get("/test", SampleGet)
-	api.Post("/users/:userId", SamplePost)
+	api.Get("/users/:userId", ShowUser)
+	api.Put("/users/:userId", UpdateUser)
 
-	response := api.HandleRequest(request)
+	// Handle the requests
+	getResponse := api.HandleRequest(getRequest)
+	postResponse := api.HandleRequest(postRequest)
 
-	fmt.Println(response)
+	// Print the response bodies
+	getBody, _ := json.Marshal(getResponse.Body)
+	postBody, _ := json.Marshal(postResponse.Body)
+	fmt.Println("GET Request Body: ", string(getBody))
+	fmt.Println("PUT Response Body: ", string(postBody))
 }
 ```
 
