@@ -3,7 +3,7 @@ package main
 import (
 	. "aws_lambda/app"
 	. "aws_lambda/handlers"
-	// . "aws_lambda/middleware"
+	. "aws_lambda/middleware"
 	"encoding/json"
 	"fmt"
 )
@@ -49,7 +49,7 @@ func main() {
 	api.Middleware([]Middleware{})
 
 	// Register the routes
-	api.Group("/users", []Middleware{}, func() {
+	api.Group("/users", []Middleware{Authorize}, func() {
 		api.Get("/:userId", RouteOptions{
 			Handler: ShowUser,
 		})
