@@ -40,7 +40,9 @@ type Routes map[string]RouteOptions
 type Method string
 
 type Api struct {
-	methods map[Method]Routes
+	methods          map[Method]Routes
+	basePath         string
+	globalMiddleware []Middleware
 }
 
 const (
@@ -53,7 +55,9 @@ const (
 // Create a new API application
 func RestApi() *Api {
 	return &Api{
-		methods: make(map[Method]Routes),
+		methods:          make(map[Method]Routes),
+		basePath:         "",
+		globalMiddleware: []Middleware{},
 	}
 }
 
@@ -77,12 +81,27 @@ func (api *Api) Delete(pathToMatch string, routeOptions RouteOptions) {
 	api.RegisterRoute(DELETE, pathToMatch, routeOptions)
 }
 
+// Register a group of routes
+func (api *Api) Group(basePath string, middlewares []Middleware, registerRoutes func()) {
+	originalBasePath := api.basePath
+	originalMiddlewares := api.globalMiddleware
+
+	api.basePath = originalBasePath + basePath
+	api.globalMiddleware = append(originalMiddlewares, middlewares...)
+
+	registerRoutes()
+
+	api.basePath = originalBasePath
+	api.globalMiddleware = originalMiddlewares
+}
+
 // Register a handler for a request
 func (api *Api) RegisterRoute(method Method, pathToMatch string, routeOptions RouteOptions) {
 	if api.methods[method] == nil {
 		api.methods[method] = make(Routes)
 	}
-	api.methods[method][pathToMatch] = routeOptions
+	routeOptions.Middleware = append(api.globalMiddleware, routeOptions.Middleware...)
+	api.methods[method][api.basePath+pathToMatch] = routeOptions
 }
 
 // Handle a request
@@ -141,5 +160,11 @@ func Error(statusCode int, message string) RestApiResponse {
 			"error": message,
 		},
 		StatusCode: statusCode,
+	}
+}
+
+func (api *Api) Middleware(middleware []Middleware) {
+	for _, m := range middleware {
+		api.globalMiddleware = append(api.globalMiddleware, m)
 	}
 }
