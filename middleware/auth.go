@@ -16,6 +16,6 @@ func Authorize(request RestApiRequest) (error, *MiddlewareReason) {
 	}
 	return fmt.Errorf("Unauthorized"), &MiddlewareReason{
 		StatusCode: 401,
-		Messsage:   "Unauthorized",
+		Message:    "Unauthorized",
 	}
 }

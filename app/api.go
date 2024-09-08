@@ -25,7 +25,7 @@ type Handler func(request RestApiRequest) RestApiResponse
 
 type MiddlewareReason struct {
 	StatusCode int
-	Messsage   string
+	Message    string
 }
 
 type Middleware func(request RestApiRequest) (error, *MiddlewareReason)
@@ -123,7 +123,7 @@ func (api *Api) HandleRequest(request RestApiRequest) RestApiResponse {
 	for _, middleware := range routeOptions.Middleware {
 		error, reason := middleware(request)
 		if error != nil {
-			return Error(reason.StatusCode, reason.Messsage)
+			return Error(reason.StatusCode, reason.Message)
 		}
 	}
 	return routeOptions.Handler(request)

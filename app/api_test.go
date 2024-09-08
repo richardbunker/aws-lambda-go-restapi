@@ -116,7 +116,7 @@ func TestApiDeleteRoute(t *testing.T) {
 	}
 }
 
-func TestApiMiddleware(t *testing.T) {
+func TestRouteMiddleware(t *testing.T) {
 	// Create a new API instance
 	api := RestApi()
 
@@ -143,7 +143,7 @@ func TestApiMiddleware(t *testing.T) {
 		t.Errorf("Expected status code 200, got %d", response.StatusCode)
 	}
 }
-func TestApiMiddlewareShouldHalt(t *testing.T) {
+func TestRouteMiddlewareShouldInterceptRequest(t *testing.T) {
 	// Create a new API instance
 	api := RestApi()
 
@@ -154,7 +154,7 @@ func TestApiMiddlewareShouldHalt(t *testing.T) {
 			func(request RestApiRequest) (error, *MiddlewareReason) {
 				return fmt.Errorf("Unauthorized"), &MiddlewareReason{
 					StatusCode: 401,
-					Messsage:   "Unauthorized",
+					Message:    "Unauthorized",
 				}
 			},
 		},
@@ -171,5 +171,14 @@ func TestApiMiddlewareShouldHalt(t *testing.T) {
 	// Assert status code
 	if response.StatusCode != 401 {
 		t.Errorf("Expected status code 200, got %d", response.StatusCode)
+	}
+}
+
+func TestErrorResponse(t *testing.T) {
+	response := Error(401, "Unauthorized")
+
+	// Assert status code
+	if response.StatusCode != 401 {
+		t.Errorf("Expected status code 401, got %d", response.StatusCode)
 	}
 }
