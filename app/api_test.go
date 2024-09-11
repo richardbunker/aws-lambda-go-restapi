@@ -15,6 +15,16 @@ func ShowPost(request RestApiRequest) RestApiResponse {
 	}
 }
 
+// Mock handler for testing that returns as 200
+func Return200(request RestApiRequest) RestApiResponse {
+	return RestApiResponse{
+		Body: map[string]interface{}{
+			"message": "ok",
+		},
+		StatusCode: 200,
+	}
+}
+
 func TestApiGetRoute(t *testing.T) {
 	// Create a new API instance
 	api := RestApi()
@@ -116,6 +126,112 @@ func TestApiDeleteRoute(t *testing.T) {
 	}
 }
 
+func TestApiGroupRoute(t *testing.T) {
+	// Create a new API instance
+	api := RestApi()
+
+	// Register the group of routes
+	api.Group("/group", []Middleware{}, func() {
+		api.Get("/one", RouteOptions{
+			Handler: Return200,
+		})
+		api.Get("/two", RouteOptions{
+			Handler: Return200,
+		})
+	})
+
+	// Test case: Group one
+	reqOne := RestApiRequest{
+		Method: "GET",
+		Path:   "/group/one",
+	}
+	// Test case: Group two
+	reqTwo := RestApiRequest{
+		Method: "GET",
+		Path:   "/group/two",
+	}
+	// Test case: Not in group
+	reqThree := RestApiRequest{
+		Method: "GET",
+		Path:   "/group/three",
+	}
+	reqFour := RestApiRequest{
+		Method: "GET",
+		Path:   "/not-here",
+	}
+
+	resOne := api.HandleRequest(reqOne)
+	resTwo := api.HandleRequest(reqTwo)
+	resThree := api.HandleRequest(reqThree)
+	resFour := api.HandleRequest(reqFour)
+
+	// Assert status code
+	if resOne.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %d", resOne.StatusCode)
+	}
+	if resTwo.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %d", resTwo.StatusCode)
+	}
+	if resThree.StatusCode != 404 {
+		t.Errorf("Expected status code 404, got %d", resThree.StatusCode)
+	}
+	if resFour.StatusCode != 404 {
+		t.Errorf("Expected status code 404, got %d", resFour.StatusCode)
+	}
+}
+
+func TestApiHandleRequest(t *testing.T) {
+	// Create a new API instance
+	api := RestApi()
+
+	api.Get("/test", RouteOptions{
+		Handler: Return200,
+	})
+
+	// Test Requests
+	reqOne := RestApiRequest{
+		Method: "GET",
+		Path:   "/test",
+	}
+	reqTwo := RestApiRequest{
+		Method: "PUT",
+		Path:   "/test",
+	}
+
+	resOne := api.HandleRequest(reqOne)
+	resTwo := api.HandleRequest(reqTwo)
+
+	// Assert status code
+	if resOne.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %d", resOne.StatusCode)
+	}
+	if resTwo.StatusCode != 405 {
+		t.Errorf("Expected status code 405, got %d", resTwo.StatusCode)
+	}
+}
+
+func TestMethodNotAllowed(t *testing.T) {
+	// Create a new API instance
+	api := RestApi()
+
+	api.Get("/test", RouteOptions{
+		Handler: Return200,
+	})
+
+	// Test Requests
+	req := RestApiRequest{
+		Method: "PUT",
+		Path:   "/test",
+	}
+
+	res := api.HandleRequest(req)
+
+	// Assert status code
+	if res.StatusCode != 405 {
+		t.Errorf("Expected status code 405, got %d", res.StatusCode)
+	}
+}
+
 func TestRouteMiddleware(t *testing.T) {
 	// Create a new API instance
 	api := RestApi()
@@ -143,6 +259,7 @@ func TestRouteMiddleware(t *testing.T) {
 		t.Errorf("Expected status code 200, got %d", response.StatusCode)
 	}
 }
+
 func TestRouteMiddlewareShouldInterceptRequest(t *testing.T) {
 	// Create a new API instance
 	api := RestApi()
@@ -174,8 +291,46 @@ func TestRouteMiddlewareShouldInterceptRequest(t *testing.T) {
 	}
 }
 
+func TestHandlesInvalidRouteRegistration(t *testing.T) {
+	// Create a new API instance
+	api := RestApi()
+
+	// Register a GET route
+	api.Get("/posts/:postId[", RouteOptions{
+		Handler: ShowPost,
+	})
+
+	// Test case: Unauthorized request
+	request := RestApiRequest{
+		Method: "GET",
+		Path:   "/posts/123",
+	}
+
+	response := api.HandleRequest(request)
+
+	// Assert status code
+	if response.StatusCode != 405 {
+		t.Errorf("Expected status code 405, got %d", response.StatusCode)
+	}
+}
+
+func TestRegistersMiddleware(t *testing.T) {
+	// Create a new API instance
+	api := RestApi()
+
+	api.Middleware([]Middleware{
+		func(request RestApiRequest) (error, *MiddlewareReason) {
+			return nil, nil
+		},
+	})
+
+	if api.globalMiddleware == nil {
+		t.Error("Expected globalMiddleware to be not nil")
+	}
+}
+
 func TestErrorResponse(t *testing.T) {
-	response := Error(401, "Unauthorized")
+	response := ApiErrorResponse(401, "Unauthorized")
 
 	// Assert status code
 	if response.StatusCode != 401 {

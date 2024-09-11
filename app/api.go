@@ -95,8 +95,33 @@ func (api *Api) Group(basePath string, middlewares []Middleware, registerRoutes 
 	api.globalMiddleware = originalMiddlewares
 }
 
+func validateRegisteredRoute(pathToMatch string) error {
+	invalidCharsMap := map[string]bool{
+		" ": true,
+		"$": true,
+		"^": true,
+		"[": true,
+		"]": true,
+		"{": true,
+		"}": true,
+		"(": true,
+		")": true,
+	}
+	for _, char := range pathToMatch {
+		_, ok := invalidCharsMap[string(char)]
+		if ok {
+			return fmt.Errorf("Invalid character in path: %s", string(char))
+		}
+	}
+	return nil
+}
+
 // Register a handler for a request
 func (api *Api) RegisterRoute(method Method, pathToMatch string, routeOptions RouteOptions) {
+	err := validateRegisteredRoute(pathToMatch)
+	if err != nil {
+		return
+	}
 	if api.methods[method] == nil {
 		api.methods[method] = make(Routes)
 	}
@@ -106,8 +131,9 @@ func (api *Api) RegisterRoute(method Method, pathToMatch string, routeOptions Ro
 
 // Handle a request
 func (api *Api) HandleRequest(request RestApiRequest) RestApiResponse {
-	if api.methods[Method(request.Method)] == nil {
-		return Error(405, "Method not allowed")
+	err := validateMethodHasRoutes(Method(request.Method), api.methods)
+	if err != nil {
+		return ApiErrorResponse(405, "Method not allowed")
 	}
 	var routeOptions RouteOptions
 	for route := range api.methods[Method(request.Method)] {
@@ -118,15 +144,22 @@ func (api *Api) HandleRequest(request RestApiRequest) RestApiResponse {
 		}
 	}
 	if routeOptions.Handler == nil {
-		return Error(404, "Route not found")
+		return ApiErrorResponse(404, "Route not found")
 	}
 	for _, middleware := range routeOptions.Middleware {
 		error, reason := middleware(request)
 		if error != nil {
-			return Error(reason.StatusCode, reason.Message)
+			return ApiErrorResponse(reason.StatusCode, reason.Message)
 		}
 	}
 	return routeOptions.Handler(request)
+}
+
+func validateMethodHasRoutes(requestedMethod Method, methods map[Method]Routes) error {
+	if methods[Method(requestedMethod)] == nil {
+		return fmt.Errorf("Method %s has no registered routes", requestedMethod)
+	}
+	return nil
 }
 
 // Extract path parameters from the requested path
@@ -145,16 +178,12 @@ func extractPathParams(requestedPath string, registeredPath string) map[string]s
 // Check if the requested path matches the registered route
 func match(path string, route string) bool {
 	pattern := regexp.MustCompile(`:\w+`).ReplaceAllString(route, "([^/]+)")
-	regex, err := regexp.Compile("^" + pattern + "$")
-	if err != nil {
-		fmt.Println("Error in regex")
-		return false
-	}
+	regex, _ := regexp.Compile("^" + pattern + "$")
 	return regex.MatchString(path)
 }
 
 // A helper function to create an error response
-func Error(statusCode int, message string) RestApiResponse {
+func ApiErrorResponse(statusCode int, message string) RestApiResponse {
 	return RestApiResponse{
 		Body: map[string]interface{}{
 			"error": message,
